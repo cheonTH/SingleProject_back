@@ -8,4 +8,6 @@ import com.single.map.model.CommentEntity;
 
 public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
     List<CommentEntity> findByBoardIdOrderByCreatedTimeAsc(Long boardId);
+
+	int countByBoardId(Long boardId);
 }

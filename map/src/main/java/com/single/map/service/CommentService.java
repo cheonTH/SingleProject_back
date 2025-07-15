@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.single.map.dto.CommentDTO;
 import com.single.map.model.CommentEntity;
 import com.single.map.model.UserEntity;
+import com.single.map.repository.BoardRepository;
 import com.single.map.repository.CommentRepository;
 import com.single.map.repository.UserRepository;
 
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class CommentService {
     private final CommentRepository repository;
     private final UserRepository userRepository;
+    private final BoardRepository boardRepository;
 
     public CommentDTO save(CommentDTO dto) {
         CommentEntity entity = CommentEntity.builder()
@@ -25,11 +27,15 @@ public class CommentService {
                 .userId(dto.getUserId())
                 .content(dto.getContent())
                 .parentId(dto.getParentId())
-                .createdTime(LocalDateTime.now().toString())
-                .updatedTime(LocalDateTime.now().toString())
+                .createdTime(dto.getCreatedTime())
+                .updatedTime(dto.getUpdatedTime())
                 .build();
 
         repository.save(entity);
+
+        // ✅ 댓글 수 반영
+        int commentCount = repository.countByBoardId(dto.getBoardId());
+        boardRepository.updateCommentCount(dto.getBoardId(), commentCount);
 
         String nickName = userRepository.findByUserId(dto.getUserId())
                 .map(UserEntity::getNickName)
@@ -67,7 +73,14 @@ public class CommentService {
     }
 
     public void delete(Long id) {
+        CommentEntity entity = repository.findById(id)
+            .orElseThrow(() -> new RuntimeException("댓글이 존재하지 않습니다."));
+
         repository.deleteById(id);
+
+        // ✅ 삭제 후 댓글 수 갱신
+        int commentCount = repository.countByBoardId(entity.getBoardId());
+        boardRepository.updateCommentCount(entity.getBoardId(), commentCount);
     }
 
     public void update(Long id, String newContent) {

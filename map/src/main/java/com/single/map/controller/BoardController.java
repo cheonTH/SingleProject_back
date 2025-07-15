@@ -4,6 +4,10 @@ import com.single.map.dto.BoardDTO;
 import com.single.map.model.BoardEntity;
 import com.single.map.service.BoardService;
 import lombok.RequiredArgsConstructor;
+
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,16 +27,19 @@ public class BoardController {
     }
 
     @GetMapping
-    public ResponseEntity<?> list() {
-        return ResponseEntity.ok(boardService.findAll());
+    public ResponseEntity<?> list(@RequestHeader(value = "userId", required = false) String userId) {
+        return ResponseEntity.ok(boardService.findAll(userId));
     }
 
+
     @GetMapping("/{id}")
-    public ResponseEntity<?> detail(@PathVariable Long id) {
-        return boardService.findById(id)
+    public ResponseEntity<?> detail(@PathVariable Long id,
+                                    @RequestHeader(value = "userId", required = false) String userId) {
+        return boardService.findById(id, userId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @RequestBody BoardDTO dto) {
@@ -46,9 +53,15 @@ public class BoardController {
     }
 
     @PostMapping("/{id}/like")
-    public ResponseEntity<?> toggleLike(@PathVariable Long id) {
-        return ResponseEntity.ok(boardService.toggleLike(id));
+    public ResponseEntity<?> toggleLike(@PathVariable Long id, @RequestHeader("userId") String userId) {
+        boardService.toggleLike(id, userId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("liked", boardService.isLikedByUser(id, userId));
+        result.put("likeCount", boardService.getLikeCount(id));
+        return ResponseEntity.ok(result);
     }
+
 
     @PostMapping("/{id}/save")
     public ResponseEntity<?> toggleSave(@PathVariable Long id) {

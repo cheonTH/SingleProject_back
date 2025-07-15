@@ -10,7 +10,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.single.map.dto.BoardDTO;
 import com.single.map.model.BoardEntity;
+import com.single.map.model.BoardLikeEntity;
+import com.single.map.repository.BoardLikeRepository;
 import com.single.map.repository.BoardRepository;
+import com.single.map.repository.CommentRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,6 +24,8 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final UserService userService;
     private final ObjectMapper objectMapper = new ObjectMapper(); // ✅ JSON 처리용
+    private final BoardLikeRepository likeRepository;
+    private final CommentRepository commentRepository;
 
     public BoardEntity save(BoardDTO dto) {
         String imageUrlsJson = "[]";
@@ -49,8 +54,8 @@ public class BoardService {
     public List<BoardDTO> findAll() {
         return boardRepository.findAll().stream().map(entity -> {
             String nickname = userService.getNickNameByUserId(entity.getUserId());
-
             List<String> imageUrls = parseImageUrls(entity.getImageUrl());
+            long likeCount = getLikeCount(entity.getId()); // ✅ 실제 좋아요 수 계산
 
             return BoardDTO.builder()
                     .id(entity.getId())
@@ -60,8 +65,8 @@ public class BoardService {
                     .nickName(nickname)
                     .writingTime(entity.getWritingTime())
                     .category(entity.getCategory())
-                    .likeCount(entity.getLikeCount())
-                    .isLiked(entity.isLiked())
+                    .likeCount(likeCount) // ✅ 수정됨
+                    .isLiked(false)       // ❌ 이건 userId가 없으니 false로
                     .isSaved(entity.isSaved())
                     .commentCount(entity.getCommentCount())
                     .imageUrls(imageUrls)
@@ -69,10 +74,12 @@ public class BoardService {
         }).collect(Collectors.toList());
     }
 
-    public Optional<BoardDTO> findById(Long id) {
+    public Optional<BoardDTO> findById(Long id, String userId) {
         return boardRepository.findById(id).map(entity -> {
             String nickname = userService.getNickNameByUserId(entity.getUserId());
             List<String> imageUrls = parseImageUrls(entity.getImageUrl());
+            boolean isLiked = userId != null && isLikedByUser(id, userId);
+            long likeCount = getLikeCount(id);
 
             return BoardDTO.builder()
                     .id(entity.getId())
@@ -82,14 +89,15 @@ public class BoardService {
                     .nickName(nickname)
                     .writingTime(entity.getWritingTime())
                     .category(entity.getCategory())
-                    .likeCount(entity.getLikeCount())
-                    .isLiked(entity.isLiked())
+                    .likeCount(likeCount)
+                    .isLiked(isLiked)
                     .isSaved(entity.isSaved())
                     .commentCount(entity.getCommentCount())
                     .imageUrls(imageUrls)
                     .build();
         });
     }
+
 
     public void delete(Long id) {
         boardRepository.deleteById(id);
@@ -112,12 +120,47 @@ public class BoardService {
         return boardRepository.save(entity);
     }
 
-    public BoardEntity toggleLike(Long id) {
-        BoardEntity entity = boardRepository.findById(id).orElseThrow();
-        entity.setLikeCount(entity.isLiked() ? entity.getLikeCount() - 1 : entity.getLikeCount() + 1);
-        entity.setLiked(!entity.isLiked());
-        return boardRepository.save(entity);
+    public BoardEntity toggleLike(Long boardId, String userId) {
+        Optional<BoardLikeEntity> existing = likeRepository.findByBoardIdAndUserId(boardId, userId);
+
+        if (existing.isPresent()) {
+            likeRepository.delete(existing.get());
+        } else {
+            likeRepository.save(BoardLikeEntity.builder().boardId(boardId).userId(userId).build());
+        }
+
+        return boardRepository.findById(boardId).orElseThrow();
     }
+
+    public boolean isLikedByUser(Long boardId, String userId) {
+        return likeRepository.findByBoardIdAndUserId(boardId, userId).isPresent();
+    }
+
+    public long getLikeCount(Long boardId) {
+        return likeRepository.countByBoardId(boardId);
+    }
+
+    public List<BoardDTO> findAll(String userId) {
+        return boardRepository.findAll().stream().map(entity -> {
+            List<String> imageUrls = parseImageUrls(entity.getImageUrl());
+
+            return BoardDTO.builder()
+                    .id(entity.getId())
+                    .title(entity.getTitle())
+                    .content(entity.getContent())
+                    .userId(entity.getUserId())
+                    .nickName(userService.getNickNameByUserId(entity.getUserId()))
+                    .writingTime(entity.getWritingTime())
+                    .category(entity.getCategory())
+                    .imageUrls(imageUrls)
+                    .likeCount(getLikeCount(entity.getId()))
+                    .isLiked(userId != null && isLikedByUser(entity.getId(), userId))
+                    .commentCount(commentRepository.countByBoardId(entity.getId())) // ✅ 추가
+                    .isSaved(entity.isSaved())
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
 
     public BoardEntity toggleSave(Long id) {
         BoardEntity entity = boardRepository.findById(id).orElseThrow();
