@@ -41,6 +41,8 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-jackson:0.11.5' // Jackson serializer
     // https://mvnrepository.com/artifact/mysql/mysql-connector-java
 	implementation 'mysql:mysql-connector-java:8.0.33'
+	
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
     
 }
 

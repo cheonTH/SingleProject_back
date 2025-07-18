@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.single.map.dto.UserDTO;
 import com.single.map.model.UserEntity;
 import com.single.map.repository.UserRepository;
+import com.single.map.service.EmailService;
 import com.single.map.service.UserService;
 
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 public class UserController {
 	private final UserService service;
 	private final UserRepository userRepository;
+	private final EmailService emailService;
+
 	
 	@GetMapping("/check-userId")
 	public ResponseEntity<?> checkUserId(@RequestParam String userId) {
@@ -138,6 +141,34 @@ public class UserController {
 	        "email", user.getEmail(),
 	        "nickName", user.getNickName()
 	    ));
+	}
+	
+	@PostMapping("/send-verification-code")
+	public ResponseEntity<?> sendVerificationCode(@RequestParam String email) {
+	    try {
+	        String code = emailService.sendVerificationCode(email);
+	        return ResponseEntity.ok(Map.of("code", code)); // 프론트에서 임시 저장하여 사용
+	    } catch (Exception e) {
+	        return ResponseEntity.badRequest().body("이메일 발송 실패: " + e.getMessage());
+	    }
+	}
+
+	@PostMapping("/verify-code")
+	public ResponseEntity<?> verifyEmailCode(@RequestBody Map<String, String> request) {
+	    String email = request.get("email");
+	    String code = request.get("code");
+
+	    if (email == null || code == null) {
+	        return ResponseEntity.badRequest().body("이메일과 인증번호를 모두 입력하세요.");
+	    }
+
+	    boolean isVerified = emailService.verifyCode(email, code);
+
+	    if (isVerified) {
+	        return ResponseEntity.ok(Map.of("verified", true, "message", "이메일 인증 성공"));
+	    } else {
+	        return ResponseEntity.badRequest().body("인증번호가 올바르지 않거나 만료되었습니다.");
+	    }
 	}
 
 
