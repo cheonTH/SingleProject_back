@@ -1,6 +1,8 @@
 package com.single.map.security;
 
 import io.jsonwebtoken.*;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.single.map.model.UserEntity;
@@ -9,7 +11,9 @@ import java.util.Date;
 
 @Service
 public class TokenProvider {
-    private static final String SECRET_KEY = "2fa503f15cf4a2b2b5bfa79bb4cc50d4ddd8caae4d9c865cfe794b44f72b49a88265ce19bf3b3e901935f1f9a3b9131df4889f3d4a9bc6763405bc194428a60c2d30d61d6f44360c8c286d8a90a1eadd7968df2e2ca47909ed5caf05facc2327a0ac545f13d2df19cbc0669c15d1e902617006f469a1c7800a5d00555d1b6e4d205425964a81800e079191bb067bcea468003de8f8ab6dc49a19975da2c40fffcb1b0a5fa9517c8d17099c41f2c3ed526e974c04ed7b714c7e3317e5a56e25d75bdd63b4340e492fa3b4b02d9ba2c6ca490fc55fa3c97a8247d8bcc0fc00794a8b855451db2f20c633bc0194d58133e0ca0932ba0fc164aa103d77a1d25212f4f2560f48e69e132b402c7516fabd093c71475257114450d3ad6c2cfc28eb7dee09c1c068b68ff9919edd6791783c89dedf99f3428e975641dd728970cb2e6507bccff975ef69be724fd32a44fbca0a7ccb6908c9b4e1deff0a9d3804fa0ca8628119e54d51dda81a8c5942c037c78019561f47ff69dcbc0365f1769ec6d0399cf4e1175f0492193ccb40b2aa90f5db537ab95b37ae857b1160972c119ca8399f6cb643d8f0a628d629c1342b4e2e6dd41b73d275b556945fee0ec67c8148f88475a6fc205592c44c40d28e37d63697a85d166f2a92e20c0d2f18a526ff99180a15ded5f27b26ab960bb503b37ed7ef3679b32cb4a95af3fab85d8a3fc3b294c2"; // 실제 운영 시 보안 강화 필요
+	@Value("${jwt.secret}")
+    private String secretKey;
+	
     private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 24; // 1일
 
     public String create(UserEntity user) {
@@ -19,14 +23,14 @@ public class TokenProvider {
                 .claim("nickname", user.getNickName())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                .signWith(SignatureAlgorithm.HS512, SECRET_KEY)
+                .signWith(SignatureAlgorithm.HS512, secretKey)
                 .compact();
     }
     
     public boolean validate(String token) {
         try {
             Jwts.parser()
-                .setSigningKey(SECRET_KEY)
+                .setSigningKey(secretKey)
                 .parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
@@ -36,7 +40,7 @@ public class TokenProvider {
 
     public String getUserId(String token) {
         return Jwts.parser()
-                .setSigningKey(SECRET_KEY)
+                .setSigningKey(secretKey)
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
